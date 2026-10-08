@@ -3,11 +3,20 @@ import json
 import os
 import re
 import time
+import logging
+
 from datetime import datetime
 from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+
+logger = logging.getLogger(__name__)
 
 SITES = [
     {
@@ -114,10 +123,15 @@ def get_price(site: dict):
         resp = requests.get(site["url"], headers=HEADERS, timeout=15)
         resp.raise_for_status()
     except requests.RequestException as exc:
+        logger.error(f"{site['name']}: request failed: {exc}")
         return None, f"грешка при заявка: {exc}"
 
     if resp.status_code in (403, 429) or "cloudflare" in resp.text.lower()[:2000]:
-        return None, "вероятно блокирано от bot-защита (нужен Selenium/Playwright)"
+        logger.warning(
+            f"{site['name']}: possible bot protection "
+            f"(HTTP {resp.status_code})"
+        )
+        return None, "вероятно блокирано от bot-защита"
 
     soup = BeautifulSoup(resp.text, "lxml")
 
@@ -155,11 +169,11 @@ def save_price(site_name: str, price: float):
         writer.writerow([datetime.now().isoformat(timespec="seconds"), site_name, price])
 
 def send_notification(message: str):
-    """Праща известие в конзолата, а ако TELEGRAM_TOKEN/CHAT_ID са зададени - и в Telegram."""
-    print(f"🔔 ИЗВЕСТИЕ: {message}")
+    logger.info(f"Telegram notification: {message}")
 
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        return  # Telegram не е конфигуриран - виж глобалните променливи горе
+        logger.warning("Telegram credentials are not configured.")
+        return
 
     try:
         resp = requests.post(
@@ -167,11 +181,14 @@ def send_notification(message: str):
             data={"chat_id": TELEGRAM_CHAT_ID, "text": message},
             timeout=10,
         )
-        if not resp.ok:
-            print(f"⚠️  Telegram грешка: {resp.status_code} {resp.text}")
-    except requests.RequestException as exc:
-        print(f"⚠️  Telegram заявката се провали: {exc}")
 
+        if not resp.ok:
+            logger.error(
+                f"Telegram error: {resp.status_code} {resp.text}"
+            )
+
+    except requests.RequestException as exc:
+        logger.error(f"Telegram request failed: {exc}")
 
 def send_daily_summary(prices: dict):
     """Праща обобщение с всички текущи цени - независимо дали са се променили."""
@@ -184,20 +201,27 @@ def send_daily_summary(prices: dict):
 def run_once():
     last_prices = load_last_prices()
     current_prices = {}
-    print(f"\n=== Проверка на цени: {datetime.now():%Y-%m-%d %H:%M} ===\n")
+
+    logger.info(
+        f"Starting price check: {datetime.now():%Y-%m-%d %H:%M}"
+    )
 
     for site in SITES:
         if not site.get("enabled", True):
-            print(f"⏭️  {site['name']}: пропуснат (изключен в config-а)")
+            logger.info(
+                f"{site['name']}: skipped (disabled in config)"
+            )
             continue
 
         price, info = get_price(site)
 
         if price is None:
-            print(f"⚠️  {site['name']}: {info}")
+            logger.warning(f"{site['name']}: {info}")
             continue
 
-        print(f"✅ {site['name']}: {price:.2f} лв./€  (метод: {info})")
+        logger.info(
+            f"{site['name']}: {price:.2f} лв./€ (method: {info})"
+        )
         current_prices[site["name"]] = price
 
         old_price = last_prices.get(site["name"])
