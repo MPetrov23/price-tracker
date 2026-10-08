@@ -1,0 +1,42 @@
+name: Daily Stroller Price Check
+
+on:
+  schedule:
+    # 14:00 UTC = 17:00 българско лятно време (EEST, UTC+3).
+    # През зимата (EET, UTC+2) това ще съответства на 16:00 местно време -
+    # ако искаш точно 17:00 целогодишно, ще трябва два cron записа
+    # (един за лятото, един за зимата) или приемаш +/-1 час разлика.
+    - cron: "0 14 * * *"
+  workflow_dispatch: {}  # позволява и ръчно пускане от GitHub интерфейса
+
+permissions:
+  contents: write  # нужно, за да може workflow-ът да commit-ва price_history.csv обратно
+
+jobs:
+  check-price:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 lxml
+
+      - name: Run price tracker
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python StrollerPriceTracker.py
+
+      - name: Save price history back to repo
+        run: |
+          git config user.name "price-tracker-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add price_history.csv
+          git diff --quiet --cached || git commit -m "Update price history [skip ci]"
+          git push
