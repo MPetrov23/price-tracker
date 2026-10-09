@@ -20,20 +20,33 @@ logger = logging.getLogger(__name__)
 
 SITES = [
     {
-        "name": "RayaToys",
-        "url": "https://rayatoys.com/bebeshka-kolichka-3-v-1-lionelo-mika",
-        "enabled": True,
-        "selector": None,
-    },
-    {
-        "name": "BG Hlapeta",
-        "url": "https://bghlapeta.com/lionelo-mika-plus-bebeshka-kolichka-3-v-1",
+        "name": "Sladurcheta",
+        "url": "https://sladurcheta.bg/product/video-bebefon-chipolino-duo-view-5full-hd-ekran",
         "enabled": True,
         "selector": None,
     },
     {
         "name": "Ozone",
-        "url": "https://www.ozone.bg/product/detska-kolichka-3-v-1-lionelo-mika-beije-sand/?utm_source=google&utm_medium=cpc&utm_campaign=P.%20MB.%20Mother%20%26%20Baby&utm_id=18946772327&gad_source=1&gad_campaignid=22913904692&gbraid=0AAAABA8ToTyHszWF4FUwuxi1aubZaW1qH&gclid=CjwKCAjw_pzWBhAkEiwAwDCi1aqzqbVsQ5JTewnY4Dzqmf8fik97whJWXJcCmCIFR26cYzHyvQ4FWRoCWLgQAvD_BwE",
+        "url": "https://www.ozone.bg/product/video-bebefon-chipolino-duo-view/",
+        "enabled": True,
+        "text_extract": {"start": "Цена:", "end": "Купи", "pick": "first"},
+        "selector": None,
+    },
+    {
+        "name": "E-Chipolino",
+        "url": (
+            "https://e-chipolino.com/p/73331-%D0%B2%D0%B8%D0%B4%D0%B5%D0%BE-"
+            "%D0%B1%D0%B5%D0%B1%D0%B5%D1%84%D0%BE%D0%BD-duo-view-5full-hd-"
+            "%D0%B5%D0%BA%D1%80%D0%B0%D0%BD"
+        ),
+        "enabled": True,
+        "text_extract": {"start": "GTIN", "end": "количество", "pick": "min"},
+        "selector": None,
+    },
+
+    {
+        "name": "BG Hlapeta",
+        "url": "https://bghlapeta.com/chipolino-duo-view-video-bebefon-5-incha-full-hd-ekran?adwords=true&gad_source=1&gad_campaignid=24069885534&gbraid=0AAAABASHlS1lQZkfbdVuC48hvE-KAZuIR&gclid=CjwKCAjwoaLWBhAWEiwAnyitu_MDMA2Cnb0Fi9v00Y_kFrc_lQyKj6BSKtHgsgAH_uNm6CXjlZo14RoCylAQAvD_BwE",
         "enabled": True,
         "selector": None,
     },
@@ -148,7 +161,7 @@ def get_price(site: dict):
         if price:
             return price, "css-selector"
 
-    return None, "цена не е намерена - провери HTML структурата ръчно"
+    return None, "Price not found."
 
 def load_last_prices():
     """Зарежда последната записана цена за всеки сайт от CSV."""
@@ -194,8 +207,8 @@ def send_daily_summary(prices: dict):
     """Праща обобщение с всички текущи цени - независимо дали са се променили."""
     if not prices:
         return
-    lines = [f"• {name}: {price:.2f} лв./€" for name, price in prices.items()]
-    message = "📊 Дневна справка - количка Lionelo Mika Plus:\n" + "\n".join(lines)
+    lines = [f"• {name}: {price:.2f} €" for name, price in prices.items()]
+    message = "Daily Prices - Chipolino Duo View \n" + "\n".join(lines)
     send_notification(message)
 
 def run_once():
